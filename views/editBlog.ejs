@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <%- include('./partials/head') %>
+        <title>Edit Blog</title>
+    </head>
+    <body>
+        <%- include('./partials/nav') %>
+
+        <div class="container mt-4">
+            <h2>Edit Your Blog</h2>
+            <form action="/blog/edit/<%= blog._id %>" method="post"
+                enctype="multipart/form-data">
+
+                <div class="mb-3">
+                    <label for="coverimage" class="form-label">Update Cover
+                        Image</label>
+                    <!-- Notice we mention they can leave it blank -->
+                    <input name="coverimage" class="form-control" type="file"
+                        id="coverimage" aria-describedby="imageHelp">
+                    <div id="imageHelp" class="form-text">
+                        Leave blank to keep your current cover image. Allowed
+                        formats: jpg, jpeg, png, gif, webp, avif, svg, bmp,
+                        tiff, heic.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <!-- Injecting the existing title as the value -->
+                    <input type="text" class="form-control" id="title"
+                        name="title" value="<%= blog.title %>" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="body" class="mb-1">Body</label>
+                    <!-- Injecting the existing body inside the textarea -->
+                    <textarea name="body" class="form-control" rows="6"
+                        id="body" required><%= blog.body %></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <button class="btn btn-success" type="submit">Save
+                        Changes</button>
+                    <!-- A cancel button to easily go back to the blog -->
+                    <a href="/blog/<%= blog._id %>"
+                        class="btn btn-secondary ms-2">Cancel</a>
+                </div>
+
+            </form>
+        </div>
+
+        <%- include('./partials/scripts') %>
+    </body>
+</html>
