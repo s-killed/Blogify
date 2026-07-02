@@ -1,35 +1,40 @@
 const express = require("express");
 const multer = require("multer");
-const fs = require("fs");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
 const Blog = require("../models/blog");
 const Comment = require("../models/comment");
 
 const router = express.Router();
-const path = require("path");
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.resolve(`./public/uploads`));
+// 1. Configure Cloudinary using your .env variables
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// 2. Set up Cloudinary storage engine instead of diskStorage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'blog_covers', // Folder name inside your Cloudinary account
+    allowed_formats: ['jpg', 'png', 'jpeg'],
   },
-  filename: function (req, file, cb) {
-    const fileName = `${Date.now()}-${file.originalname}`
-    cb(null,fileName);
-  }
-})
+});
 
-const upload = multer({ storage: storage })
+const upload = multer({ storage: storage });
 
 router.get('/add-new', (req, res) => {
-    return res.render('addblog',{
+    return res.render('addBlog',{
         user: req.user,
     })
 });
 
-
-router.get('/:id',async (req,res) => {
+router.get('/:id', async (req, res) => {
   const blog = await Blog.findById(req.params.id).populate('createdBy');
-  const comments = await Comment.find({ blogId: req.params.id}).populate(
+  const comments = await Comment.find({ blogId: req.params.id }).populate(
     "createdBy"
   );
   return res.render('blog' ,{
@@ -39,7 +44,7 @@ router.get('/:id',async (req,res) => {
   });
 });
 
-router.post('/comment/:blogId' ,async (req,res) => {
+router.post('/comment/:blogId', async (req, res) => {
   const comment = await Comment.create({
     content: req.body.content,
     blogId: req.params.blogId,
@@ -48,17 +53,21 @@ router.post('/comment/:blogId' ,async (req,res) => {
   return res.redirect(`/blog/${req.params.blogId}`);
 });
 
-router.post('/',upload.single("coverimage"),async (req, res) => {
-    const { title,body} = req.body;
+// 3. Updated dynamic post route
+router.post('/', upload.single("coverimage"), async (req, res) => {
+    const { title, body } = req.body;
+    
+    // Check if file exists, use the cloud path, otherwise fallback to a default image
+    const coverImageURL = req.file ? req.file.path : '/images/default-cover.png';
+
     const blog = await Blog.create({
       body,
       title,
       createdBy: req.user._id,
-      coverImageURL: `/uploads/${req.file.filename}`
-
-    })
+      coverImageURL: coverImageURL // Saves the absolute Cloudinary URL (https://res.cloudinary.com/...)
+    });
+    
     return res.redirect(`/blog/${blog._id}`);
-})
-
+});
 
 module.exports = router;
