@@ -5,7 +5,6 @@ const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
 const Blog = require("../models/blog");
 const Comment = require("../models/comment");
-
 const router = express.Router();
 
 // 1. Configure Cloudinary using your .env variables
