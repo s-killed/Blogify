@@ -18,7 +18,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'blog_covers', // Folder name inside your Cloudinary account
+    folder: 'blog_covers', 
     allowed_formats: ['jpg', 'png', 'jpeg'],
   },
 });
@@ -32,41 +32,62 @@ router.get('/add-new', (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  const blog = await Blog.findById(req.params.id).populate('createdBy');
-  const comments = await Comment.find({ blogId: req.params.id }).populate(
-    "createdBy"
-  );
-  return res.render('blog' ,{
-    user: req.user,
-    blog,
-    comments,
-  });
+  try {
+    const blog = await Blog.findById(req.params.id).populate('createdBy');
+    const comments = await Comment.find({ blogId: req.params.id }).populate("createdBy");
+    return res.render('blog' ,{
+      user: req.user,
+      blog,
+      comments,
+    });
+  } catch (error) {
+    console.error("Error fetching blog details:", error.message);
+    return res.status(404).send("Blog not found.");
+  }
 });
 
 router.post('/comment/:blogId', async (req, res) => {
-  const comment = await Comment.create({
-    content: req.body.content,
-    blogId: req.params.blogId,
-    createdBy: req.user._id,
-  });
-  return res.redirect(`/blog/${req.params.blogId}`);
+  try {
+    if (!req.user) return res.status(401).send("You must be logged in to comment.");
+    
+    await Comment.create({
+      content: req.body.content,
+      blogId: req.params.blogId,
+      createdBy: req.user._id,
+    });
+    return res.redirect(`/blog/${req.params.blogId}`);
+  } catch (error) {
+    console.error("Error creating comment:", error.message);
+    return res.status(500).send("Failed to post comment.");
+  }
 });
 
-// 3. Updated dynamic post route
+// 3. Updated dynamic post route wrapped in try/catch
 router.post('/', upload.single("coverimage"), async (req, res) => {
-    const { title, body } = req.body;
-    
-    // Check if file exists, use the cloud path, otherwise fallback to a default image
-    const coverImageURL = req.file ? req.file.path : '/images/default-cover.png';
+    try {
+        // Fallback protection if user auth falls through
+        if (!req.user) {
+            return res.status(401).send("Unauthorized: Please log in to create a blog.");
+        }
 
-    const blog = await Blog.create({
-      body,
-      title,
-      createdBy: req.user._id,
-      coverImageURL: coverImageURL // Saves the absolute Cloudinary URL (https://res.cloudinary.com/...)
-    });
-    
-    return res.redirect(`/blog/${blog._id}`);
+        const { title, body } = req.body;
+        
+        // If file exists, use cloud path, otherwise fallback to a default image
+        const coverImageURL = req.file ? req.file.path : '/images/default-cover.png';
+
+        const blog = await Blog.create({
+          body,
+          title,
+          createdBy: req.user._id,
+          coverImageURL: coverImageURL 
+        });
+        
+        return res.redirect(`/blog/${blog._id}`);
+    } catch (error) {
+        // This will print the precise error in your Render logs instead of [object Object]
+        console.error("CRITICAL ROUTE ERROR:", error.message || error);
+        return res.status(500).send(`Internal Server Error: ${error.message || "Upload Failed"}`);
+    }
 });
 
 module.exports = router;
