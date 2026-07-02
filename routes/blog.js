@@ -101,4 +101,68 @@ router.post('/', (req, res) => {
     });
 });
 
+// GET Route: Render the edit page
+router.get('/edit/:id', async (req, res) => {
+    try {
+        if (!req.user) return res.status(401).send("You must be logged in.");
+
+        const blog = await Blog.findById(req.params.id);
+        if (!blog) return res.status(404).send("Blog not found.");
+
+        // Check ownership: convert both ObjectIds to strings to ensure an exact match
+        if (blog.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).send("Unauthorized: You do not have permission to edit this blog.");
+        }
+
+        return res.render('editBlog', {
+            user: req.user,
+            blog: blog
+        });
+    } catch (error) {
+        console.error("Error loading edit page:", error.message);
+        return res.status(500).send("Internal Server Error");
+    }
+});
+
+// POST Route: Handle the blog update
+router.post('/edit/:id', (req, res) => {
+    const uploadMiddleware = upload.single("coverimage");
+
+    uploadMiddleware(req, res, async (err) => {
+        if (err) {
+            console.error("File Format/Upload Error:", err.message);
+            return res.status(400).send("Wrong Image Format. Please try again with a supported image.");
+        }
+
+        try {
+            if (!req.user) return res.status(401).send("You must be logged in.");
+
+            const blog = await Blog.findById(req.params.id);
+            if (!blog) return res.status(404).send("Blog not found.");
+
+            // Check ownership again on submission
+            if (blog.createdBy.toString() !== req.user._id.toString()) {
+                return res.status(403).send("Unauthorized: You do not have permission to edit this blog.");
+            }
+
+            // Update title and body
+            blog.title = req.body.title;
+            blog.body = req.body.body;
+
+            // If the user uploaded a NEW image, update the URL. 
+            // If they didn't, it safely ignores this and keeps their old image.
+            if (req.file) {
+                blog.coverImageURL = req.file.path;
+            }
+
+            await blog.save();
+            return res.redirect(`/blog/${blog._id}`);
+
+        } catch (error) {
+            console.error("Database Error during update:", error.message || error);
+            return res.status(500).send("An error occurred while updating the blog.");
+        }
+    });
+});
+
 module.exports = router;
