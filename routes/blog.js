@@ -26,7 +26,7 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage: storage });
 
 router.get('/add-new', (req, res) => {
-    return res.render('addBlog',{
+    return res.render('addblog',{
         user: req.user,
     })
 });
