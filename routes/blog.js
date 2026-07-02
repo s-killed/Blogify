@@ -62,32 +62,43 @@ router.post('/comment/:blogId', async (req, res) => {
   }
 });
 
-// 3. Updated dynamic post route wrapped in try/catch
-router.post('/', upload.single("coverimage"), async (req, res) => {
-    try {
-        // Fallback protection if user auth falls through
-        if (!req.user) {
-            return res.status(401).send("Unauthorized: Please log in to create a blog.");
+// 3. Updated dynamic post route with custom format error handling
+router.post('/', (req, res) => {
+    // 1. Initialize the upload function manually
+    const uploadMiddleware = upload.single("coverimage");
+
+    // 2. Run the upload and catch any errors it throws immediately
+    uploadMiddleware(req, res, async (err) => {
+        if (err) {
+            console.error("File Format/Upload Error:", err.message);
+            // This is what the user will see on the screen instead of crashing!
+            return res.status(400).send("Wrong Image Format. Please go back and try again with a supported image.");
         }
 
-        const { title, body } = req.body;
-        
-        // If file exists, use cloud path, otherwise fallback to a default image
-        const coverImageURL = req.file ? req.file.path : '/images/default-cover.png';
+        // 3. If upload is successful, proceed with database creation safely
+        try {
+            if (!req.user) {
+                return res.status(401).send("Unauthorized: Please log in to create a blog.");
+            }
 
-        const blog = await Blog.create({
-          body,
-          title,
-          createdBy: req.user._id,
-          coverImageURL: coverImageURL 
-        });
-        
-        return res.redirect(`/blog/${blog._id}`);
-    } catch (error) {
-        // This will print the precise error in your Render logs instead of [object Object]
-        console.error("CRITICAL ROUTE ERROR:", error.message || error);
-        return res.status(500).send(`Internal Server Error: ${error.message || "Upload Failed"}`);
-    }
+            const { title, body } = req.body;
+            
+            const coverImageURL = req.file ? req.file.path : '/images/default-cover.png';
+
+            const blog = await Blog.create({
+              body,
+              title,
+              createdBy: req.user._id,
+              coverImageURL: coverImageURL 
+            });
+            
+            return res.redirect(`/blog/${blog._id}`);
+            
+        } catch (error) {
+            console.error("Database Error:", error.message || error);
+            return res.status(500).send("An error occurred while saving the blog.");
+        }
+    });
 });
 
 module.exports = router;
